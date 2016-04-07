@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 #  Yandex.Disk indicator
-appVer = '1.8.10'
+appVer = '1.8.12'
 #
 #  Copyright 2014+ Sly_tom_cat <slytomcat@mail.ru>
 #  based on grive-tools (C) Christiaan Diedericks (www.thefanclub.co.za)
@@ -577,17 +577,16 @@ class YDDaemon(object):         # Yandex.Disk daemon interface
      - 'no internet access' converted to 'no_net'
      - 'error' covers all other errors, except 'no internet access'
     '''
-    self.update.reset()                     # Reset updates
+    self.update.reset()                     # Reset updates object
     # Split output on two parts: list of named values and file list
-    pos = out.find('Last synchronized items:')
-    if pos > 0:
-      output = out[:pos].splitlines()
-      files = out[pos+25:]
+    output = out.split('Last synchronized items:')
+    if len(output) == 2:
+      files = output[1]
     else:
-      output = out.splitlines()
       files = ''
+    output = output[0].splitlines()
     # Make a dictionary from named values (use only lines containing ':')
-    res = dict([re.findall(r'\t*(.+): (.*)' , l)[0] for l in output if ':' in l])
+    res = dict([re.findall(r'\s*(.+):\s*(.*)', l)[0] for l in output if ':' in l])
     # Parse named status values
     for srch, key in (('Synchronization core status', 'status'), ('Sync progress', 'progress'),
                       ('Total', 'total'), ('Used', 'used'), ('Available', 'free'),
@@ -1203,8 +1202,27 @@ def activateActions():          # Install/deinstall file extensions
   activate = config["fmextensions"]
   result = False
 
+  # Package manager check
+  if subprocess.call("hash dpkg>/dev/null 2>&1", shell=True)==0:
+    logger.info("dpkg detected")
+    pm = 'dpkg -s '
+  elif subprocess.call("hash rpm>/dev/null 2>&1", shell=True)==0:
+    logger.info("rpm detected")
+    pm = 'rpm -qi '
+  elif subprocess.call("hash pacman>/dev/null 2>&1", shell=True)==0:
+    logger.info("Pacman detected")
+    pm = 'pacman -Qi '
+  elif subprocess.call("hash zypper>/dev/null 2>&1", shell=True)==0:
+    logger.info("Zypper detected")
+    pm = 'zypper info '
+  elif subprocess.call("hash emerge>/dev/null 2>&1", shell=True)==0:
+    logger.info("Emerge detected")
+    pm = 'emerge -pv '
+  else:
+    logger.info("Your package manager is not supported. Installing FM extensions is not possible.")
+    return result
   # --- Actions for Nautilus ---
-  ret = subprocess.call(["dpkg -s nautilus>/dev/null 2>&1"], shell=True)
+  ret = subprocess.call([pm + "nautilus>/dev/null 2>&1"], shell=True)
   logger.info("Nautilus installed: %s" % str(ret == 0))
   if ret == 0:
     ver = subprocess.check_output(["lsb_release -r | sed -n '1{s/[^0-9]//g;p;q}'"], shell=True)
@@ -1230,7 +1248,7 @@ def activateActions():          # Install/deinstall file extensions
       except:
         pass
   # --- Actions for Nemo ---
-  ret = subprocess.call(["dpkg -s nemo>/dev/null 2>&1"], shell=True)
+  ret = subprocess.call([pm + "nemo>/dev/null 2>&1"], shell=True)
   logger.info("Nemo installed: %s" % str(ret == 0))
   if ret == 0:
     if activate:        # Install actions for Nemo
@@ -1250,7 +1268,7 @@ def activateActions():          # Install/deinstall file extensions
       except:
         pass
   # --- Actions for Thunar ---
-  ret = subprocess.call(["dpkg -s thunar>/dev/null 2>&1"], shell=True)
+  ret = subprocess.call([pm + "thunar>/dev/null 2>&1"], shell=True)
   logger.info("Thunar installed: %s" % str(ret == 0))
   if ret == 0:
     ucaPath = pathJoin(userHome, ".config/Thunar/uca.xml")
@@ -1296,7 +1314,7 @@ def activateActions():          # Install/deinstall file extensions
         pass
 
   # --- Actions for Dolphin ---
-  ret = subprocess.call(["dpkg -s dolphin>/dev/null 2>&1"], shell=True)
+  ret = subprocess.call([pm + "dolphin>/dev/null 2>&1"], shell=True)
   logger.info("Dolphin installed: %s" % str(ret == 0))
   if ret == 0:
     if activate:        # Install actions for Dolphin
@@ -1314,7 +1332,7 @@ def activateActions():          # Install/deinstall file extensions
       except:
         pass
   # --- Actions for Pantheon-files ---
-  ret = subprocess.call(["dpkg -s pantheon-files>/dev/null 2>&1"], shell=True)
+  ret = subprocess.call([pm + "pantheon-files>/dev/null 2>&1"], shell=True)
   logger.info("Pantheon-files installed: %s" % str(ret == 0))
   if ret == 0:
     ctrs_path = "/usr/share/contractor/"
